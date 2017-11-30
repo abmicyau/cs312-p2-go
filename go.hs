@@ -79,9 +79,8 @@ gameLoop board player score singlePlayer = do
         let board2 = fromJust maybeBoard2
         let (board3, newScore) = capture board2 score
 
-        -- check newBoard for suicide (just check if the stone at the move location is empty)
-        -- TODO: replace True with suicide flag
-        if True then do
+        -- check newBoard for suicide
+        if isOccupied board3 move then do
           -- legal move
           gameLoop board3 (nextPlayer player) newScore singlePlayer
         else do
