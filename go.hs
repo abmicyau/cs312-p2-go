@@ -208,49 +208,22 @@ printBoard board = do
 
     printBoardHelper :: Board -> Int -> IO ()
     printBoardHelper board n = do
-      if n == 1 then do
-        printTopRow (board!!0) n
+      printRow (board!!0) n
+      if n < size then do
         printVBars size
         printBoardHelper (drop 1 board) (n+1)
-      else if n < size then do
-        printMiddleRow (board!!0) n
-        printVBars size
-        printBoardHelper (drop 1 board) (n+1)
-      else do
-        printBottomRow (board!!0) n
+      else return ()
 
-    printTopRow :: String -> Int -> IO ()
-    printTopRow row n = do
-      if length row == size then do
-        putStr $ padSpaces 2 n ++ " " ++ [charToStone 1 1 (row!!0)]
-        printTopRow (drop 1 row) n
-      else if length row > 1 then do
-        putStr $ "\x2500\x2500\x2500" ++ [charToStone 1 (size - (length row) + 1) (row!!0)]
-        printTopRow (drop 1 row) n
-      else
-        putStr $ "\x2500\x2500\x2500" ++ [charToStone 1 size (row!!0)] ++ "\n"
-
-    printMiddleRow :: String -> Int -> IO ()
-    printMiddleRow row n = do
+    printRow :: String -> Int -> IO ()
+    printRow row n = do
       if length row == size then do
         putStr $ padSpaces 2 n ++ " " ++ [charToStone n 1 (row!!0)]
-        printMiddleRow (drop 1 row) n
+        printRow (drop 1 row) n
       else if length row > 1 then do
         putStr $ "\x2500\x2500\x2500" ++ [charToStone n (size - (length row) + 1) (row!!0)]
-        printMiddleRow (drop 1 row) n
+        printRow (drop 1 row) n
       else
         putStr $ "\x2500\x2500\x2500" ++ [charToStone n size (row!!0)] ++ "\n"
-
-    printBottomRow :: String -> Int -> IO ()
-    printBottomRow row n = do
-      if length row == size then do
-        putStr $ padSpaces 2 n ++ " " ++ [charToStone size 1 (row!!0)]
-        printBottomRow (drop 1 row) n
-      else if length row > 1 then do
-        putStr $ "\x2500\x2500\x2500" ++ [charToStone size (size - (length row) + 1) (row!!0)]
-        printBottomRow (drop 1 row) n
-      else
-        putStr $ "\x2500\x2500\x2500" ++ [charToStone size size (row!!0)] ++ "\n"
 
     charToStone :: Int -> Int -> Char -> Char
     charToStone row col char =
