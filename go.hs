@@ -64,7 +64,7 @@ gameLoop board player score singlePlayer = do
         -- ... BUT need to check for suicide!
 
         let board2 = fromJust maybeBoard2
-        let (board3, newScore) = capture board2 score
+        let (board3, newScore) = capture board2 score move
 
         -- check newBoard for suicide
         if isOccupied board3 move then do
@@ -134,19 +134,112 @@ putStone board move player =
 generateBoard :: Int -> Board
 generateBoard size = replicate size $ replicate size ' '
 
--- Checks the entire board for new captures and creates a new board
+-- Checks adjacent pieces for new captures and creates a new board
 -- and set of scores with the updated state.
 --
 -- TODO
 --
-capture :: Board -> Score -> (Board, Score)
-capture board score = (board, score)
+capture :: Board -> Score -> Move -> (Board, Score)
+capture board score move =
+  leftPieces ++ rightPieces ++ upPieces ++ downPieces
+  where
+    left = (fst move, snd move-1)
+    right = (fst move, snd move+1)
+    up = (fst move-1, snd move)
+    down = (fst move+1, snd move)
+    size = length board
+    leftPieces
+      | isInBounds size left = getCaptures board left "right" []
+      | otherwise = []
+    rightPieces
+      | isInBounds size right = getCaptures board right "left" []
+      | otherwise = []
+    upPieces
+      | isInBounds size up = getCaptures board up "down" []
+      | otherwise = []
+    downPieces
+      | isInBounds size down = getCaptures board down "up" []
+      | otherwise = []
 
+-- check from starting position if a list of pieces should be captured
+-- return said list if it is surrounded by hostile pieces
+-- if not return empty list
+-- prev indicates direction of previous piece, it is a piece of the same
+-- color as the piece at position that we assume to be hostile because
+-- it is adjacent to other hostile pieces
+-- if recursive calls returns empty list, then the whole set of connected pieces
+-- is considered non-capturable and empty list is returned
+getCaptures :: Board -> Move -> String -> [Move] -> [Move]
+getCaptures board position prev captured
+  | not (isInBounds position) = captured
+  -- set of pieces are not surrounded
+  | isInBounds left && getPiece board left == "\n" = []
+  | isInBounds right && getPiece board right == "\n" = []
+  | isInBounds up && getPiece board up == "\n" = []
+  | isInBounds down && getPiece board down == "\n" = []
+  | position elem captured = captured
+  -- TODO: fix syntax here
+  | otherwise =
+    if leftHostile && rightHostile && upHostile && downHostile
+      then captured++[position]
+    if not leftHostile && null leftCaptures
+      then []
+    if not rightHostile && null rightCaptures
+      then []
+    if not upHostile && null upCaptures
+      then[]
+    if not downHostile && null downCaptures
+      then []
+    else
+      leftCaptures ++ rightCaptures ++ upCaptures ++ downCaptures
+  where
+    piece = getPiece board position
+    row = fst position
+    col = snd position
+    size = length board
+    left = (row, col-1)
+    right = (row, col+1)
+    up = (row-1, col)
+    down = (row+1, col)
+    leftHostile
+      | prev == "left" = True
+      | otherwise = isHostile board piece left
+    rightHostile
+      | prev == "right" = True
+      | otherwise = isHostile board piece right
+    upHostile
+      | prev == "up" = True
+      | otherwise = isHostile board piece up
+    downHostile
+      | prev == "down" = True
+      | otherwise = isHostile board piece down
+    leftCaptures
+      | leftHostile = []
+      | otherwise = getCaptures board left "right" captured++[position]
+    rightCaptures
+      | rightHostile = []
+      | otherwise = getCaptures board right "left" captured++[position]
+    upCaptures
+      | upHostile = []
+      | otherwise = getCaptures board up "down" captured++[position]
+    downCaptures
+      | downHostile = []
+      | otherwise = getCaptures board down "up" captured++[position]
 
-
-
-
-
+-- checks if adjacent is a hostile tile to piece
+-- if adjacent is out of bounds, it is considered hostile
+isHostile :: Board -> Move -> Move -> Bool
+isHostile board piece adjacent
+  | not adjacentInBounds = True
+  | pieceToken != adjacentToken = True
+  | otherwise = isHostile
+  where
+    size = length board
+    adjacentInBounds = isInBounds size adjacent
+    pieceToken = getPiece board piece
+    adjacentToken
+      | adjacentInBounds = getPiece board adjacent
+      | otherwise = if piece == 'w' then 'b' else 'w'
 
 -- Other Helpers
 
@@ -186,6 +279,25 @@ padSpaces n v = replicate (n - length str) ' ' ++ str
 repeatString :: Int -> String -> String
 repeatString n str = if n <= 0 then "" else str ++ repeatString (n-1) str
 
+-- return the value of the piece on the board at move's position
+-- move is (row, col), assume move is within board
+-- piece can be one of: 'b', 'w', or "\n"
+getPiece :: Board -> Move -> Char
+getPiece board position = boardPiece
+  where
+    row = fst position
+    boardRow = board!!(row-1)
+    col = snd position
+    boardPiece = boardRow!!(col-1)
+
+-- checks if a piece is in bounds of the game board given board size
+isInBounds :: Int -> Move -> Bool
+isInBounds size position
+  | row < 1 || row > size || col < 1 || col > size = False
+  | otherwise = True
+  where
+    row = fst position
+    col = snd position
 --
 printBoard :: Board -> IO ()
 printBoard board = do
