@@ -22,6 +22,7 @@
     -- [DONE] Call gameLoop with the new board and switch players
 -- 4) Make a createGameBoard function that can create any sized NxN board
 -- [DONE] 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
+-- 6) Add some sort of indicator for the star points on the board
 
 import Data.List
 import Data.Char
@@ -32,28 +33,13 @@ main :: IO b
 main = do
   putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
-  gameLoop emptyBoard 'b' (0,0) True
+  gameLoop (generateBoard 19) 'b' (0,0) True
 
 type Board = [[Char]]
 type Move = (Int, Int)
 -- Score is (black, white). For example (12, 5)
 -- means black has 12 points and white has 5 points
 type Score = (Int, Int)
-
--- 9x9 sample board
---  'w' for a white stone
---  'b' for a black stone
---  ' ' for an empty space
---
-emptyBoard = ["         ",
-              "         ",
-              "         ",
-              "         ",
-              "         ",
-              "         ",
-              "         ",
-              "         ",
-              "         "]
 
 -- Main game loop
 --  board: game board (NxN matrix)
@@ -144,6 +130,9 @@ putStone board move player =
     row = fst move
     boardRow = board!!(row-1)
     col = snd move
+
+generateBoard :: Int -> Board
+generateBoard size = replicate size $ replicate size ' '
 
 -- Checks the entire board for new captures and creates a new board
 -- and set of scores with the updated state.
