@@ -8,7 +8,7 @@
 -- [DONE] 1) If the move string is invalid, try again
 -- [DONE] 2) Attempt to apply move to board:
   -- Check for illegal move - cases:
-    -- suicide (requires creating a new board and checking its state)
+    -- [DONE] suicide (requires creating a new board and checking its state)
     -- [DONE] out of bounds (looking at the coordinates should be enough)
     -- [DONE] already occupied (looking at the coordinates should be enough)
     -- ko limit (optional? need to keep track of repeated moves)
@@ -17,11 +17,11 @@
     -- [DONE] Apply the move to the board to create a new board
     -- Check the new board for new captures and create another new board
       -- A group of connected stones is captured if no stone in the group
-      -- has an empty neighbour
+      -- has an empty neighbour (no liberties)
     -- Update scores
-    -- Call gameLoop with the new board and switch players
+    -- [DONE] Call gameLoop with the new board and switch players
 -- 4) Make a createGameBoard function that can create any sized NxN board
--- 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
+-- [DONE] 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
 
 import Data.List
 import Data.Char
@@ -30,7 +30,7 @@ import Data.Maybe
 -- Main function. Just calls gameLoop for now.
 main :: IO b
 main = do
-  putStrLn $ take 2 $ repeat '\n'
+  putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
   gameLoop emptyBoard 'b' (0,0) True
 
@@ -63,10 +63,11 @@ emptyBoard = ["         ",
 gameLoop :: Board -> Char -> Score -> Bool -> IO b
 gameLoop board player score singlePlayer = do
     printBoard board
-    putStrLn $ take 1 $ repeat '\n'
+    putStrLn $ replicate 1 '\n'
     putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
+    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b."
     line <- getLine
-    putStrLn $ take 1 $ repeat '\n'
+    putStrLn $ replicate 1 '\n'
     let maybeMove = parseMove line
     if isJust maybeMove then do
       -- valid input
@@ -92,24 +93,6 @@ gameLoop board player score singlePlayer = do
     else do
       -- invalid input
       gameLoop board player score singlePlayer
-
-
---
-printBoard :: Board -> IO ()
-printBoard [] = return ()
-printBoard (h:t) = do
-    printRow h
-    printBoard t
-    where
-      printRow [] = putStr "\n"
-      printRow (h:t) = do
-        if h == 'w' then
-          putStr "\x25CB "
-        else if h == 'b' then
-          putStr "\x25CF "
-        else
-          putStr "- "
-        printRow t
 
 -- Parses a move string (for example, "5 12") into an optional tuple containing the
 -- coordinates as integers, otherwise Nothing if there is any parsing error or ambiguity
@@ -179,9 +162,120 @@ capture board score = (board, score)
 -- Other Helpers
 
 -- Given a player ('b' or 'w'), returns the next player
+-- For example:
+-- nextPlayer 'w'
+-- > 'b'
+-- nextPlayer 'b'
+-- > 'w'
 --
 nextPlayer :: Char -> Char
 nextPlayer p = if p == 'w' then 'b' else 'w'
 
+-- Converts a player char ('b' or 'w') to the string representation
+-- For example:
+-- toPlayerText 'w'
+-- > "WHITE"
+-- toPlayerText 'b'
+-- > "BLACK"
+--
 toPlayerText :: Char -> String
 toPlayerText p = if p == 'w' then "WHITE" else "BLACK"
+
+-- Pads an integer to the specified length with spaces
+-- For example:
+-- padSpaces 2 2
+-- > " 2"
+-- padSpaces 0 4
+-- > "4"
+-- padSpaces 4 13
+-- > "  13"
+--
+padSpaces :: Int -> Int -> String
+padSpaces n v = replicate (n - length str) ' ' ++ str
+  where str = show v
+
+repeatString :: Int -> String -> String
+repeatString n str = if n <= 0 then "" else str ++ repeatString (n-1) str
+
+--
+printBoard :: Board -> IO ()
+printBoard board = do
+  printHeader 1
+  printBoardHelper board 1
+
+  where
+    size = length board
+
+    printBoardHelper :: Board -> Int -> IO ()
+    printBoardHelper board n = do
+      if n == 1 then do
+        printTopRow (board!!0) n
+        printVBars size
+        printBoardHelper (drop 1 board) (n+1)
+      else if n < size then do
+        printMiddleRow (board!!0) n
+        printVBars size
+        printBoardHelper (drop 1 board) (n+1)
+      else do
+        printBottomRow (board!!0) n
+
+    printTopRow :: String -> Int -> IO ()
+    printTopRow row n = do
+      if length row == size then do
+        putStr $ padSpaces 2 n ++ " " ++ [charToStone 1 1 (row!!0)]
+        printTopRow (drop 1 row) n
+      else if length row > 1 then do
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone 1 (size - (length row) + 1) (row!!0)]
+        printTopRow (drop 1 row) n
+      else
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone 1 size (row!!0)] ++ "\n"
+
+    printMiddleRow :: String -> Int -> IO ()
+    printMiddleRow row n = do
+      if length row == size then do
+        putStr $ padSpaces 2 n ++ " " ++ [charToStone n 1 (row!!0)]
+        printMiddleRow (drop 1 row) n
+      else if length row > 1 then do
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone n (size - (length row) + 1) (row!!0)]
+        printMiddleRow (drop 1 row) n
+      else
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone n size (row!!0)] ++ "\n"
+
+    printBottomRow :: String -> Int -> IO ()
+    printBottomRow row n = do
+      if length row == size then do
+        putStr $ padSpaces 2 n ++ " " ++ [charToStone size 1 (row!!0)]
+        printBottomRow (drop 1 row) n
+      else if length row > 1 then do
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone size (size - (length row) + 1) (row!!0)]
+        printBottomRow (drop 1 row) n
+      else
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone size size (row!!0)] ++ "\n"
+
+    charToStone :: Int -> Int -> Char -> Char
+    charToStone row col char =
+      if char == 'w' then '\x25cb'
+      else if char == 'b' then '\x25cf'
+      else if row == 1 then
+        if col == 1 then '\x250c'
+        else if col < size then '\x252c'
+        else '\x2510'
+      else if row < size then
+        if col == 1 then '\x251c'
+        else if col < size then '\x253c'
+        else '\x2524'
+      else
+        if col == 1 then '\x2514'
+        else if col < size then '\x2534'
+        else '\x2518'
+
+    printHeader :: Int -> IO ()
+    printHeader n = do
+      if n <= size then do
+        putStr $ padSpaces 4 n
+        printHeader $ n + 1
+      else
+        putStr "\n"
+
+    printVBars :: Int -> IO ()
+    printVBars n = putStr $ repeatString n "   \x2502" ++ "\n"
