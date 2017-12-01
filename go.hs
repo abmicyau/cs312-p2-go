@@ -20,7 +20,7 @@
       -- has an empty neighbour (no liberties)
     -- Update scores
     -- [DONE] Call gameLoop with the new board and switch players
--- 4) Make a createGameBoard function that can create any sized NxN board
+-- [DONE] 4) Make a createGameBoard function that can create any sized NxN board
 -- [DONE] 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
 -- 6) Add some sort of indicator for the star points on the board
 
@@ -33,7 +33,7 @@ main :: IO b
 main = do
   putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
-  gameLoop (generateBoard 19) 'b' (0,0) True
+  gameLoop (generateBoard 19) 'b' (0,0) False
 
 type Board = [[Char]]
 type Move = (Int, Int)
@@ -48,37 +48,45 @@ type Score = (Int, Int)
 --
 gameLoop :: Board -> Char -> Score -> Bool -> IO b
 gameLoop board player score singlePlayer = do
-    printBoard board
-    putStrLn $ replicate 1 '\n'
-    putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
-    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b."
-    line <- getLine
-    putStrLn $ replicate 1 '\n'
-    let maybeMove = parseMove line
-    if isJust maybeMove then do
-      -- valid input
-      let move = fromJust maybeMove
-      let maybeBoard2 = doMove board move player
-      if isJust maybeBoard2 then do
-        -- possibly legal move (not out of bounds, not occupied)
-        -- ... BUT need to check for suicide!
+    if singlePlayer && player == 'b' then do
+      -- AI's turn
+      let move = aiMove board
+      -- AI move guaranteed to be legal
+      let board2 = fromJust $ doMove board move player
+      let (board3, newScore) = capture board2 score
+      gameLoop board3 (nextPlayer player) newScore singlePlayer
+    else do
+      printBoard board
+      putStrLn $ replicate 1 '\n'
+      putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
+      putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b.\n"
+      line <- getLine
+      putStrLn $ replicate 1 '\n'
+      let maybeMove = parseMove line
+      if isJust maybeMove then do
+        -- valid input
+        let move = fromJust maybeMove
+        let maybeBoard2 = doMove board move player
+        if isJust maybeBoard2 then do
+          -- possibly legal move (not out of bounds, not occupied)
+          -- ... BUT need to check for suicide!
 
-        let board2 = fromJust maybeBoard2
-        let (board3, newScore) = capture board2 score
+          let board2 = fromJust maybeBoard2
+          let (board3, newScore) = capture board2 score
 
-        -- check newBoard for suicide
-        if isOccupied board3 move then do
-          -- legal move
-          gameLoop board3 (nextPlayer player) newScore singlePlayer
+          -- check newBoard for suicide
+          if isOccupied board3 move then do
+            -- legal move
+            gameLoop board3 (nextPlayer player) newScore singlePlayer
+          else do
+            -- illegal move (suicide)
+            gameLoop board player score singlePlayer
         else do
-          -- illegal move (suicide)
+          -- illegal move (out of bounds or already occupied)
           gameLoop board player score singlePlayer
       else do
-        -- illegal move (out of bounds or already occupied)
+        -- invalid input
         gameLoop board player score singlePlayer
-    else do
-      -- invalid input
-      gameLoop board player score singlePlayer
 
 -- Parses a move string (for example, "5 12") into an optional tuple containing the
 -- coordinates as integers, otherwise Nothing if there is any parsing error or ambiguity
@@ -241,3 +249,10 @@ printBoard board = do
 
     printVBars :: Int -> IO ()
     printVBars n = putStr $ repeatString n "   \x2502" ++ "\n"
+
+
+-- AI --
+
+-- Let's just say the AI is always black
+aiMove :: Board -> Move
+aiMove board = (0,0)
