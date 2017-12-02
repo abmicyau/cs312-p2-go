@@ -143,9 +143,6 @@ putStone board move player =
 generateBoard :: Int -> Board
 generateBoard size = replicate size $ replicate size ' '
 
-<<<<<<< HEAD
--- Checks adjacent pieces for new captures and creates a new board
-=======
 -- Generate a random integer between 0 and n-1 inclusive
 randInt :: Int -> IO Int
 randInt n = do
@@ -190,13 +187,11 @@ indexMax lst =
           indexMaxHelper (drop 1 lst) (cur+1) idx max
 
 -- Checks the entire board for new captures and creates a new board
->>>>>>> 677c57564677861be2f253421f1aa27a81439eac
 -- and set of scores with the updated state.
 --
 -- TODO
 --
 capture :: Board -> Score -> Move -> (Board, Score)
-<<<<<<< HEAD
 capture board score move = do
   let board1 = removePieces board leftPieces
       board2 = removePieces board1 upPieces
@@ -205,9 +200,6 @@ capture board score move = do
       allPieces = leftGroup ++ upGroup ++ rightGroup ++ downGroup
       newScore = updateScore score (length allPieces) player
       in (board4, newScore)
-=======
-capture board score move = (board, score)
->>>>>>> 677c57564677861be2f253421f1aa27a81439eac
 
   where
     player = getPiece board move
@@ -221,7 +213,7 @@ capture board score move = (board, score)
         then []
         else if player == getPiece board left
           then []
-          else getGroup board left move []
+          else getGroup board left left []
     upGroup =
       if not (isInBounds size up)
         then []
@@ -229,23 +221,23 @@ capture board score move = (board, score)
           then []
           else if (up `elem` leftGroup)
             then []
-            else getGroup board up move []
+            else getGroup board up up []
     rightGroup =
       if not (isInBounds size right)
         then []
         else if player == getPiece board right
           then []
-          else if (right `elem` leftGroup) && (right `elem` upGroup)
+          else if (right `elem` leftGroup) || (right `elem` upGroup)
             then []
-            else getGroup board right move []
+            else getGroup board right right []
     downGroup =
       if not (isInBounds size down)
         then []
         else if player == getPiece board down
           then []
-          else if (down `elem` leftGroup) && (down `elem` upGroup) && (down `elem` rightGroup)
+          else if (down `elem` leftGroup) || (down `elem` upGroup) || (down `elem` rightGroup)
             then []
-            else getGroup board down move []
+            else getGroup board down down []
     leftPieces =
       if (isDead board leftGroup)
         then leftGroup
@@ -294,7 +286,7 @@ getGroup board position prev group
   | position `elem` group = group
   | getPiece board position /= getPiece board prev = group
   | otherwise =
-    let list1 = getGroup board left position group
+    let list1 = getGroup board left position group++[position]
         list2 = getGroup board right position list1
         list3 = getGroup board up position list2
         list4 = getGroup board down position list3
@@ -466,8 +458,6 @@ printBoard board = do
 
     printVBars :: Int -> IO ()
     printVBars n = putStr $ repeatString n "   \x2502" ++ "\n"
-<<<<<<< HEAD
-=======
 
 
 -- AI --
@@ -557,4 +547,3 @@ baseScore n
   | n < 10 = 10-n
   | n > 10 = n-10
   | otherwise = 0
->>>>>>> 677c57564677861be2f253421f1aa27a81439eac
