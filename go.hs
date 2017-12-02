@@ -34,7 +34,7 @@ main :: IO b
 main = do
   putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
-  gameLoop (generateBoard 19) 'b' (0,0) True
+  gameLoop (generateBoard 19) 'b' (0,0) False
 
 type Board = [[Char]]
 type Move = (Int, Int)
@@ -59,31 +59,35 @@ gameLoop board player score singlePlayer = do
   else do
     printBoard board
     putStrLn $ replicate 1 '\n'
+    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b."
+    putStrLn $ "To skip turn, type 0 0.\n"
     putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
-    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b.\n"
     line <- getLine
     putStrLn $ replicate 1 '\n'
     let maybeMove = parseMove line
     if isJust maybeMove then do
       -- valid input
       let move = fromJust maybeMove
-      let maybeBoard2 = doMove board move player
-      if isJust maybeBoard2 then do
-        -- possibly legal move (not out of bounds, not occupied)
-        -- ... BUT need to check for suicide!
-        let board2 = fromJust maybeBoard2
-        let (board3, newScore) = capture board2 score move
-
-        -- check newBoard for suicide
-        if isSuicide board3 move then do
-          -- do not allow player to make suicide move
-          gameLoop board player score singlePlayer
-        else do
-          -- legal move
-          gameLoop board3 (nextPlayer player) newScore singlePlayer
+      if (fst move) == 0 && (snd move) == 0 then do
+        gameLoop board (nextPlayer player) score singlePlayer
       else do
-        -- illegal move (out of bounds or already occupied)
-        gameLoop board player score singlePlayer
+        let maybeBoard2 = doMove board move player
+        if isJust maybeBoard2 then do
+          -- possibly legal move (not out of bounds, not occupied)
+          -- ... BUT need to check for suicide!
+          let board2 = fromJust maybeBoard2
+          let (board3, newScore) = capture board2 score move
+
+          -- check newBoard for suicide
+          if isSuicide board3 move then do
+            -- do not allow player to make suicide move
+            gameLoop board player score singlePlayer
+          else do
+            -- legal move
+            gameLoop board3 (nextPlayer player) newScore singlePlayer
+        else do
+          -- illegal move (out of bounds or already occupied)
+          gameLoop board player score singlePlayer
     else do
       -- invalid input
       gameLoop board player score singlePlayer
@@ -109,13 +113,13 @@ parseMove move
 
 doMove :: Board -> Move -> Char -> Maybe Board
 doMove board move player
- | row < 1 || col < 1 || row > size || col > size = Nothing -- Out of bounds
- | isOccupied board move = Nothing -- Already occupied
- | otherwise = Just $ putStone board move player
- where
-  row = fst move
-  col = snd move
-  size = length board
+  | row < 1 || col < 1 || row > size || col > size = Nothing -- Out of bounds
+  | isOccupied board move = Nothing -- Already occupied
+  | otherwise = Just $ putStone board move player
+  where
+    row = fst move
+    col = snd move
+    size = length board
 
 -- NOTE: Assumes that move is NOT out of bounds (is within the board size)
 isOccupied :: Board -> Move -> Bool
