@@ -50,6 +50,8 @@ gameLoop board player score singlePlayer = do
     putStrLn $ replicate 1 '\n'
     putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b."
     putStrLn $ "To skip turn, type 0 0.\n"
+    putStrLn $ "Pieces captured:"
+    putStrLn $ "BLACK: " ++ show (fst score) ++ " WHITE: " ++ show (snd score) ++ "\n"
     putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
     line <- getLine
     putStrLn $ replicate 1 '\n'
@@ -197,7 +199,7 @@ capture board score move = do
       board2 = removePieces board1 upPieces
       board3 = removePieces board2 rightPieces
       board4 = removePieces board3 downPieces
-      allPieces = leftGroup ++ upGroup ++ rightGroup ++ downGroup
+      allPieces = leftPieces ++ upPieces ++ rightPieces ++ downPieces
       newScore = updateScore score (length allPieces) player
       in (board4, newScore)
   where
@@ -220,7 +222,7 @@ capture board score move = do
         then []
         else if player == getPiece board up
           then []
-          else if not (isOccupied board left)
+          else if not (isOccupied board up)
             then []
             else if (up `elem` leftGroup)
               then []
@@ -230,7 +232,7 @@ capture board score move = do
         then []
         else if player == getPiece board right
           then []
-          else if not (isOccupied board left)
+          else if not (isOccupied board right)
             then []
             else if (right `elem` leftGroup) || (right `elem` upGroup)
               then []
@@ -240,26 +242,26 @@ capture board score move = do
         then []
         else if player == getPiece board down
           then []
-          else if not (isOccupied board left)
+          else if not (isOccupied board down)
             then []
             else if (down `elem` leftGroup) || (down `elem` upGroup) || (down `elem` rightGroup)
               then []
               else getGroup board down down []
     leftPieces =
       if (isDead board leftGroup)
-        then leftGroup
+        then nub leftGroup
         else []
     upPieces =
       if (isDead board upGroup)
-        then upGroup
+        then nub upGroup
         else []
     rightPieces =
       if (isDead board rightGroup)
-        then rightGroup
+        then nub rightGroup
         else []
     downPieces =
       if (isDead board downGroup)
-        then downGroup
+        then nub downGroup
         else []
 
 -- Generate new board with pieces in given list removed from board
@@ -271,16 +273,19 @@ removePieces board (h:t) = removePieces (putStone board h ' ') t
 -- Update score by counting number of captured pieces and adding to the
 -- appropriate player
 updateScore :: Score -> Int -> Char -> Score
-updateScore score size player =
-  if player == 'B'
+updateScore score size player = do
+  if player == 'b'
     then (fst score + size, snd score)
-    else (fst score, snd score + size)
+    else if player == 'w'
+      then (fst score, snd score + size)
+      else score
 
 -- get all tiles of same color from starting tile
 --
 getGroup :: Board -> Move -> Move -> [Move] -> [Move]
 getGroup board position prev group
   | not (isInBounds size position) = group
+  | getPiece board position == ' ' = group
   | position `elem` group = group
   | getPiece board position /= getPiece board prev = group
   | otherwise =
