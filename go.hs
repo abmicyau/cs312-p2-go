@@ -3,27 +3,6 @@
 -- CPSC 312
 -- 2017W1 Project 2
 
--- TODO:
---
--- [DONE] 1) If the move string is invalid, try again
--- [DONE] 2) Attempt to apply move to board:
-  -- Check for illegal move - cases:
-    -- [DONE] suicide (requires creating a new board and checking its state)
-    -- [DONE] out of bounds (looking at the coordinates should be enough)
-    -- [DONE] already occupied (looking at the coordinates should be enough)
-    -- ko limit (optional? need to keep track of repeated moves)
-  -- [DONE] If illegal, then get another move from the player
--- 3) If the move is not illegal, then:
-    -- [DONE] Apply the move to the board to create a new board
-    -- Check the new board for new captures and create another new board
-      -- A group of connected stones is captured if no stone in the group
-      -- has an empty neighbour (no liberties)
-    -- Update scores
-    -- [DONE] Call gameLoop with the new board and switch players
--- [DONE] 4) Make a createGameBoard function that can create any sized NxN board
--- [DONE] 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
--- 6) Add some sort of indicator for the star points on the board
-
 import Data.List
 import Data.Char
 import Data.Maybe
@@ -36,10 +15,20 @@ main = do
   putStrLn "Welcome to GO!\n"
   gameLoop (generateBoard 19) 'b' (0,0) True
 
+-- Board is a matrix of characters
+-- 'w' is white
+-- 'b' is black
+-- ' ' is an empty space
+--
 type Board = [[Char]]
+
+-- Each move is a tuple containing the row and column
+--
 type Move = (Int, Int)
+
 -- Score is (black, white). For example (12, 5)
 -- means black has 12 points and white has 5 points
+--
 type Score = (Int, Int)
 
 -- Main game loop
@@ -107,6 +96,8 @@ parseMove move
     rowTupleArr = reads $ coords !! 0 :: [(Int, String)]
     colTupleArr = reads $ coords !! 1 :: [(Int, String)]
 
+-- Performs a move on a board for a specified player and generates a new board
+--
 doMove :: Board -> Move -> Char -> Maybe Board
 doMove board move player
  | row < 1 || col < 1 || row > size || col > size = Nothing -- Out of bounds
@@ -117,7 +108,9 @@ doMove board move player
   col = snd move
   size = length board
 
--- NOTE: Assumes that move is NOT out of bounds (is within the board size)
+-- Checks whether the board has a piece located at a specified position
+-- NOTE: Assumes that the move is NOT out of bounds (is within the board size)
+--
 isOccupied :: Board -> Move -> Bool
 isOccupied board move
  | stone == 'b' || stone == 'w' = True
@@ -128,7 +121,9 @@ isOccupied board move
   col = snd move
   stone = boardRow!!(col-1)
 
+-- Places a stone at a position on a board to generate a new board
 -- NOTE: Assumes that the move is NOT out of bounds
+--
 putStone :: Board -> Move -> Char -> Board
 putStone board move player =
   take (row-1) board ++
@@ -139,10 +134,13 @@ putStone board move player =
     boardRow = board!!(row-1)
     col = snd move
 
+-- Generates an NxN board
+--
 generateBoard :: Int -> Board
 generateBoard size = replicate size $ replicate size ' '
 
 -- Generate a random integer between 0 and n-1 inclusive
+--
 randInt :: Int -> IO Int
 randInt n = do
   ms <- (fmap (\ x -> round (x * 1000000)) getPOSIXTime)
@@ -173,6 +171,7 @@ sampleN lst n = do
     return $ element : rest
 
 -- Returns the index of the largest positive element in a list or 0 otherwise
+--
 indexMax :: [Int] -> Int
 indexMax lst =
   indexMaxHelper lst 0 0 0
@@ -185,10 +184,8 @@ indexMax lst =
         else
           indexMaxHelper (drop 1 lst) (cur+1) idx max
 
--- Checks the entire board for new captures and creates a new board
--- and set of scores with the updated state.
---
--- TODO
+-- Simulates a move on a board at a specified position and performs all possible
+-- captures from that position to generate a new board
 --
 capture :: Board -> Score -> Move -> (Board, Score)
 capture board score move = do
@@ -254,6 +251,7 @@ capture board score move = do
         else []
 
 -- Generate new board with pieces in given list removed from board
+--
 removePieces :: Board -> [Move] -> Board
 removePieces board [] = board
 removePieces board (h:t) = removePieces (putStone board h ' ') t
@@ -267,6 +265,7 @@ updateScore score size player =
     else (fst score, snd score + size)
 
 -- get all tiles of same color from starting tile
+--
 getGroup :: Board -> Move -> Move -> [Move] -> [Move]
 getGroup board position prev group
   | not (isInBounds size position) = group
@@ -289,6 +288,7 @@ getGroup board position prev group
 
 -- checks if a move results in a suicide
 -- assumes move is valid
+--
 isSuicide :: Board -> Move -> Bool
 isSuicide board move = isDead board group
   where
@@ -304,6 +304,8 @@ isDead board (h:t)
   | not (isSurrounded board h) = False
   | otherwise = isDead board t
 
+-- Checks whether or not a given piece has any liberties
+--
 isSurrounded :: Board -> Move -> Bool
 isSurrounded board piece = leftHostile && upHostile && rightHostile && downHostile
   where
@@ -374,6 +376,8 @@ padSpaces :: Int -> Int -> String
 padSpaces n v = replicate (n - length str) ' ' ++ str
   where str = show v
 
+-- Repeats a string n times
+--
 repeatString :: Int -> String -> String
 repeatString n str = if n <= 0 then "" else str ++ repeatString (n-1) str
 
@@ -389,6 +393,7 @@ getPiece board position = boardPiece
     boardPiece = boardRow!!(col-1)
 
 -- checks if a piece is in bounds of the game board given board size
+--
 isInBounds :: Int -> Move -> Bool
 isInBounds size position
   | row < 1 || row > size || col < 1 || col > size = False
@@ -396,6 +401,8 @@ isInBounds size position
   where
     row = fst position
     col = snd position
+
+-- Prints the board
 --
 printBoard :: Board -> IO ()
 printBoard board = do
@@ -476,17 +483,21 @@ aiMove board player = do
 
   return move
 
+-- Checks whether a move is legal
+--
 isLegalMove :: Board -> Move -> Char -> IO Bool
 isLegalMove board move player = do
   let maybeBoard = doMove board move player
   if isJust maybeBoard then do
     let board2 = fromJust maybeBoard
-    --let (board3, newScore) = capture board2 (0,0) move
     if not $ isSuicide board2 move then
       return True
     else return False
   else return False
 
+-- Given a board, generates a list of all possible legal moves that can
+-- be played on that board
+--
 getAllLegalMoves :: Board -> Char -> IO [Move]
 getAllLegalMoves board player = do
   result <- helper board player 1 1
@@ -515,7 +526,10 @@ getAllLegalMoves board player = do
         nextRow = row+1
         nextCol = col+1
 
--- -- Gets the move with the largest score
+-- Given a list of moves, returns the move that would result in the largest score
+-- based on the following score function:
+--  score = row score + column score + (# pieces captured * 16)
+--
 bestMove :: [Move] -> Board -> Char -> Move
 bestMove lst board player =
   lst!!index
@@ -524,12 +538,12 @@ bestMove lst board player =
       | player == 'b' = fst $ snd $ capture board (0,0) move
       | otherwise = snd $ snd $ capture board (0,0) move
     moveToScore move =
-      (baseScore $ fst move) + (baseScore $ snd move) + (captureScore move)
+      (baseScore $ fst move) + (baseScore $ snd move) + (captureScore move * 16)
     scores = map (\x -> moveToScore x) lst
     index = indexMax scores
 
 -- Convert a row or column number into a base score, based on the
--- following pattern on a 19x19 board:
+-- following pattern on a 19x19 board (same with row or column):
 -- 0 2 4 6 5 4 3 2 1 0 1 2 3 4 5 6 4 2 0
 --
 baseScore :: Int -> Int
