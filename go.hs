@@ -412,6 +412,7 @@ printBoard :: Board -> IO ()
 printBoard board = do
   printHeader 1
   printBoardHelper board 1
+  printHeader 1
 
   where
     size = length board
@@ -433,7 +434,7 @@ printBoard board = do
         putStr $ "\x2500\x2500\x2500" ++ [charToStone n (size - (length row) + 1) (row!!0)]
         printRow (drop 1 row) n
       else
-        putStr $ "\x2500\x2500\x2500" ++ [charToStone n size (row!!0)] ++ "\n"
+        putStr $ "\x2500\x2500\x2500" ++ [charToStone n size (row!!0)] ++ " " ++ padSpaces 2 n ++ "\n"
 
     charToStone :: Int -> Int -> Char -> Char
     charToStone row col char =
