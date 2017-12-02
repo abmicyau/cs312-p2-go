@@ -140,60 +140,106 @@ generateBoard size = replicate size $ replicate size ' '
 -- TODO
 --
 capture :: Board -> Score -> Move -> (Board, Score)
-capture board score move =
-  leftPieces ++ rightPieces ++ upPieces ++ downPieces
+capture board score move = do
+  let board1 = removePieces board leftPieces
+      board2 = removePieces board1 upPieces
+      board3 = removePieces board2 rightPieces
+      board4 = removePieces board3 downPieces
+      allPieces = leftGroup ++ upGroup ++ rightGroup ++ downGroup
+      newScore = updateScore score (length allPieces) player
+      in (board4, newScore)
+
   where
+    player = getPiece board move
     left = (fst move, snd move-1)
     right = (fst move, snd move+1)
     up = (fst move-1, snd move)
     down = (fst move+1, snd move)
     size = length board
-    leftPieces
-      | isInBounds size left = getCaptures board left "right" []
-      | otherwise = []
-    rightPieces
-      | isInBounds size right = getCaptures board right "left" []
-      | otherwise = []
-    upPieces
-      | isInBounds size up = getCaptures board up "down" []
-      | otherwise = []
-    downPieces
-      | isInBounds size down = getCaptures board down "up" []
-      | otherwise = []
+    leftGroup =
+      if not (isInBounds size left)
+        then []
+        else if player == getPiece board left
+          then []
+          else getGroup board left move []
+    upGroup =
+      if not (isInBounds size up)
+        then []
+        else if player == getPiece board up
+          then []
+          else if (up `elem` leftGroup)
+            then []
+            else getGroup board up move []
+    rightGroup =
+      if not (isInBounds size right)
+        then []
+        else if player == getPiece board right
+          then []
+          else if (right `elem` leftGroup) && (right `elem` upGroup)
+            then []
+            else getGroup board right move []
+    downGroup =
+      if not (isInBounds size down)
+        then []
+        else if player == getPiece board down
+          then []
+          else if (down `elem` leftGroup) && (down `elem` upGroup) && (down `elem` rightGroup)
+            then []
+            else getGroup board down move []
+    leftPieces =
+      if (isDead board leftGroup)
+        then leftGroup
+        else []
+    upPieces =
+      if (isDead board upGroup)
+        then upGroup
+        else []
+    rightPieces =
+      if (isDead board rightGroup)
+        then rightGroup
+        else []
+    downPieces =
+      if (isDead board downGroup)
+        then downGroup
+        else []
 
--- check from starting position if a list of pieces should be captured
--- return said list if it is surrounded by hostile pieces
--- if not return empty list
--- prev indicates direction of previous piece, it is a piece of the same
--- color as the piece at position that we assume to be hostile because
--- it is adjacent to other hostile pieces
--- if recursive calls returns empty list, then the whole set of connected pieces
--- is considered non-capturable and empty list is returned
-getCaptures :: Board -> Move -> String -> [Move] -> [Move]
-getCaptures board position prev captured
-  | not (isInBounds position) = captured
-  -- set of pieces are not surrounded
-  | isInBounds left && getPiece board left == "\n" = []
-  | isInBounds right && getPiece board right == "\n" = []
-  | isInBounds up && getPiece board up == "\n" = []
-  | isInBounds down && getPiece board down == "\n" = []
-  | position elem captured = captured
-  -- TODO: fix syntax here
-  | otherwise =
-    if leftHostile && rightHostile && upHostile && downHostile
-      then captured++[position]
-    if not leftHostile && null leftCaptures
-      then []
-    if not rightHostile && null rightCaptures
-      then []
-    if not upHostile && null upCaptures
-      then[]
-    if not downHostile && null downCaptures
-      then []
-    else
-      leftCaptures ++ rightCaptures ++ upCaptures ++ downCaptures
+-- Generate new board with pieces in given list removed from board
+removePieces :: Board -> [Move] -> Board
+removePieces board [] = board
+removePieces board (h:t) = removePieces (removePiece board h) t
+
+-- Generate new board with given piece removed
+removePiece :: Board -> Move -> Board
+removePiece board piece =
+  take (row-1) board ++
+    [take (col-1) boardRow ++ "\n" ++ drop col boardRow] ++
+    drop row board
   where
-    piece = getPiece board position
+    row = fst piece
+    boardRow = board!!(row-1)
+    col = snd piece
+
+-- Update score by counting number of captured pieces and adding to the
+-- appropriate player
+updateScore :: Score -> Int -> Char -> Score
+updateScore score size player =
+  if player == 'B'
+    then (fst score + size, snd score)
+    else (fst score, snd score + size)
+
+-- get all tiles of same color from starting tile
+getGroup :: Board -> Move -> Move -> [Move] -> [Move]
+getGroup board position prev group
+  | not (isInBounds size position) = group
+  | position `elem` group = group
+  | getPiece board position /= getPiece board prev = group
+  | otherwise =
+    let list1 = getGroup board left position group
+        list2 = getGroup board right position list1
+        list3 = getGroup board up position list2
+        list4 = getGroup board down position list3
+        in list4
+  where
     row = fst position
     col = snd position
     size = length board
@@ -201,45 +247,52 @@ getCaptures board position prev captured
     right = (row, col+1)
     up = (row-1, col)
     down = (row+1, col)
-    leftHostile
-      | prev == "left" = True
-      | otherwise = isHostile board piece left
-    rightHostile
-      | prev == "right" = True
-      | otherwise = isHostile board piece right
-    upHostile
-      | prev == "up" = True
-      | otherwise = isHostile board piece up
-    downHostile
-      | prev == "down" = True
-      | otherwise = isHostile board piece down
-    leftCaptures
-      | leftHostile = []
-      | otherwise = getCaptures board left "right" captured++[position]
-    rightCaptures
-      | rightHostile = []
-      | otherwise = getCaptures board right "left" captured++[position]
-    upCaptures
-      | upHostile = []
-      | otherwise = getCaptures board up "down" captured++[position]
-    downCaptures
-      | downHostile = []
-      | otherwise = getCaptures board down "up" captured++[position]
 
--- checks if adjacent is a hostile tile to piece
--- if adjacent is out of bounds, it is considered hostile
-isHostile :: Board -> Move -> Move -> Bool
-isHostile board piece adjacent
-  | not adjacentInBounds = True
-  | pieceToken != adjacentToken = True
-  | otherwise = isHostile
+
+-- checks if a group of tiles of the same color should be killed
+-- a group is killable if it is surrounded by only hostile tiles
+-- or non-inbounds tiles
+isDead :: Board -> [Move] -> Bool
+-- if we've processed the entire list then group should be killed
+isDead board [] = True
+isDead board (h:t)
+  | not (isSurrounded board h) = False
+  | otherwise = isDead board t
+
+isSurrounded :: Board -> Move -> Bool
+isSurrounded board piece = leftHostile && upHostile && rightHostile && downHostile
   where
+    row = fst piece
+    col = snd piece
     size = length board
-    adjacentInBounds = isInBounds size adjacent
-    pieceToken = getPiece board piece
-    adjacentToken
-      | adjacentInBounds = getPiece board adjacent
-      | otherwise = if piece == 'w' then 'b' else 'w'
+    left = (row, col-1)
+    right = (row, col+1)
+    up = (row-1, col)
+    down = (row+1, col)
+    leftHostile =
+      if not (isInBounds size left)
+        then True
+        else if not (isOccupied board left)
+          then False
+          else True
+    rightHostile =
+      if not (isInBounds size right)
+        then True
+        else if not (isOccupied board right)
+          then False
+          else True
+    upHostile =
+      if not (isInBounds size up)
+        then True
+        else if not (isOccupied board up)
+          then False
+          else True
+    downHostile =
+      if not (isInBounds size down)
+        then True
+        else if not (isOccupied board down)
+          then False
+          else True
 
 -- Other Helpers
 
