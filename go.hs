@@ -20,20 +20,21 @@
       -- has an empty neighbour (no liberties)
     -- Update scores
     -- [DONE] Call gameLoop with the new board and switch players
--- 4) Make a createGameBoard function that can create any sized NxN board
+-- [DONE] 4) Make a createGameBoard function that can create any sized NxN board
 -- [DONE] 5) Improve board printing (using an actual grid labeled with numbers for rows and cols)
 -- 6) Add some sort of indicator for the star points on the board
 
 import Data.List
 import Data.Char
 import Data.Maybe
+import Data.Time.Clock.POSIX
 
 -- Main function. Just calls gameLoop for now.
 main :: IO b
 main = do
   putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
-  gameLoop (generateBoard 19) 'b' (0,0) True
+  gameLoop (generateBoard 19) 'b' (0,0) False
 
 type Board = [[Char]]
 type Move = (Int, Int)
@@ -44,14 +45,22 @@ type Score = (Int, Int)
 -- Main game loop
 --  board: game board (NxN matrix)
 --  playerChar: either 'b' or 'w' indicating whose turn it is
---  singlePlayer: boolean flag for AI (not implemented yet)
+--  singlePlayer: boolean flag for AI
 --
 gameLoop :: Board -> Char -> Score -> Bool -> IO b
 gameLoop board player score singlePlayer = do
+  if singlePlayer && player == 'b' then do
+    -- AI's turn
+    move <- aiMove board player
+    -- AI move guaranteed to be legal
+    let board2 = fromJust $ doMove board move player
+    let (board3, newScore) = capture board2 score move
+    gameLoop board3 (nextPlayer player) newScore singlePlayer
+  else do
     printBoard board
     putStrLn $ replicate 1 '\n'
     putStrLn $ "Playing: " ++ toPlayerText player ++ " - please enter a move: "
-    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b."
+    putStrLn $ "Type 'a b' (without quotes) to place a stone in row a, column b.\n"
     line <- getLine
     putStrLn $ replicate 1 '\n'
     let maybeMove = parseMove line
@@ -134,12 +143,60 @@ putStone board move player =
 generateBoard :: Int -> Board
 generateBoard size = replicate size $ replicate size ' '
 
+<<<<<<< HEAD
 -- Checks adjacent pieces for new captures and creates a new board
+=======
+-- Generate a random integer between 0 and n-1 inclusive
+randInt :: Int -> IO Int
+randInt n = do
+  ms <- (fmap (\ x -> round (x * 1000000)) getPOSIXTime)
+  return $ mod ms n
+
+-- Takes a list and returns a random element and the list with the element removed
+-- NOTE: Assumes the list is NON-EMPTY.
+--
+sample :: [a] -> IO (a,[a])
+sample lst = do
+  let len = length lst
+  index <- randInt len
+  let element = lst!!index
+  let slice = take index lst ++ drop (index+1) lst
+  return (element, slice)
+
+-- Samples n random elements from a list, or the entire list of n is greater than
+-- or equal to the length of the list
+-- NOTE: Assumes n >= 0
+--
+sampleN :: [a] -> Int -> IO [a]
+sampleN lst n = do
+  let len = length lst
+  if n == 0 || len == 0 then return []
+  else do
+    (element, slice) <- sample lst
+    rest <- sampleN slice (n-1)
+    return $ element : rest
+
+-- Returns the index of the largest positive element in a list or 0 otherwise
+indexMax :: [Int] -> Int
+indexMax lst =
+  indexMaxHelper lst 0 0 0
+  where
+    indexMaxHelper lst cur idx max
+      | length lst == 0 = idx
+      | otherwise =
+        if lst!!0 > max then
+          indexMaxHelper (drop 1 lst) (cur+1) cur (lst!!0)
+        else
+          indexMaxHelper (drop 1 lst) (cur+1) idx max
+
+-- Checks the entire board for new captures and creates a new board
+>>>>>>> 677c57564677861be2f253421f1aa27a81439eac
 -- and set of scores with the updated state.
 --
 -- TODO
 --
 capture :: Board -> Score -> Move -> (Board, Score)
+<<<<<<< HEAD
 capture board score move = do
   let board1 = removePieces board leftPieces
       board2 = removePieces board1 upPieces
@@ -148,6 +205,9 @@ capture board score move = do
       allPieces = leftGroup ++ upGroup ++ rightGroup ++ downGroup
       newScore = updateScore score (length allPieces) player
       in (board4, newScore)
+=======
+capture board score move = (board, score)
+>>>>>>> 677c57564677861be2f253421f1aa27a81439eac
 
   where
     player = getPiece board move
@@ -406,3 +466,95 @@ printBoard board = do
 
     printVBars :: Int -> IO ()
     printVBars n = putStr $ repeatString n "   \x2502" ++ "\n"
+<<<<<<< HEAD
+=======
+
+
+-- AI --
+
+-- For simplicity, we make the following assumptions for the AI:
+--  - We are always playing on a 19x19 board
+--  - Corner (star) and adjacent positions have the highest priority
+--  - If all corner positions are taken, attempt to make an L or diagonal
+--  - Points between star positions get the next highest priority
+--  - Otherwise base move on a heatmap of scores (see baseScore) plus
+--    any additional scores from capturing stones
+--
+aiMove :: Board -> Char -> IO Move
+aiMove board player = do
+  -- 1) Generate a list of all possible legal moves on the board
+  allMoves <- getAllLegalMoves board player
+
+  -- 2) Randomly sample half of the legal moves
+  let numMoves = div (fromIntegral $ length allMoves) 2
+  randomSample <- sampleN allMoves numMoves
+
+  -- 3) Pick the move with the highest score
+  let move = bestMove randomSample board player
+
+  return move
+
+getAllLegalMoves :: Board -> Char -> IO [Move]
+getAllLegalMoves board player = do
+  result <- helper board player 1 1
+  return result
+  where
+    size = length board
+    helper board player row col = do
+      legalMove <- isLegalMove board (row,col) player
+      if row > size then do
+        return []
+      else if col == size then do
+        if legalMove then do
+          result <- helper board player nextRow 1
+          return $ (row,col):result
+        else do
+          result <- helper board player nextRow 1
+          return result
+      else do
+        if legalMove then do
+          result <- helper board player row nextCol
+          return $ (row,col):result
+        else do
+          result <- helper board player row nextCol
+          return result
+      where
+        nextRow = row+1
+        nextCol = col+1
+
+isLegalMove :: Board -> Move -> Char -> IO Bool
+isLegalMove board move player = do
+  let maybeBoard = doMove board move player
+  if isJust maybeBoard then do
+    let board2 = fromJust maybeBoard
+    let (board3, newScore) = capture board2 (0,0) move
+    if isOccupied board3 move then
+      return True
+    else return False
+  else return False
+
+-- -- Gets the move with the largest score
+bestMove :: [Move] -> Board -> Char -> Move
+bestMove lst board player =
+  lst!!index
+  where
+    captureScore move
+      | player == 'b' = fst $ snd $ capture board (0,0) move
+      | otherwise = snd $ snd $ capture board (0,0) move
+    moveToScore move =
+      (baseScore $ fst move) + (baseScore $ snd move) + (captureScore move)
+    scores = map (\x -> moveToScore x) lst
+    index = indexMax scores
+
+-- Convert a row or column number into a base score, based on the
+-- following pattern on a 19x19 board:
+-- 0 2 4 6 5 4 3 2 1 0 1 2 3 4 5 6 4 2 0
+--
+baseScore :: Int -> Int
+baseScore n
+  | n < 4 = (n-1)*2
+  | n > 16 = (19-n)*2
+  | n < 10 = 10-n
+  | n > 10 = n-10
+  | otherwise = 0
+>>>>>>> 677c57564677861be2f253421f1aa27a81439eac
