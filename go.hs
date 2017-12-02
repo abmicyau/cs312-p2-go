@@ -76,12 +76,12 @@ gameLoop board player score singlePlayer = do
         let (board3, newScore) = capture board2 score move
 
         -- check newBoard for suicide
-        if isOccupied board3 move then do
+        if isSuicide board3 move then do
+          -- do not allow player to make suicide move
+          gameLoop board player score singlePlayer
+        else do
           -- legal move
           gameLoop board3 (nextPlayer player) newScore singlePlayer
-        else do
-          -- illegal move (suicide)
-          gameLoop board player score singlePlayer
       else do
         -- illegal move (out of bounds or already occupied)
         gameLoop board player score singlePlayer
@@ -200,7 +200,6 @@ capture board score move = do
       allPieces = leftGroup ++ upGroup ++ rightGroup ++ downGroup
       newScore = updateScore score (length allPieces) player
       in (board4, newScore)
-
   where
     player = getPiece board move
     left = (fst move, snd move-1)
@@ -300,6 +299,12 @@ getGroup board position prev group
     up = (row-1, col)
     down = (row+1, col)
 
+-- checks if a move results in a suicide
+-- assumes move is valid
+isSuicide :: Board -> Move -> Bool
+isSuicide board move = isDead board group
+  where
+    group = getGroup board move move []
 
 -- checks if a group of tiles of the same color should be killed
 -- a group is killable if it is surrounded by only hostile tiles
