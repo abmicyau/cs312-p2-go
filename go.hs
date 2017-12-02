@@ -34,7 +34,7 @@ main :: IO b
 main = do
   putStrLn $ replicate 2 '\n'
   putStrLn "Welcome to GO!\n"
-  gameLoop (generateBoard 19) 'b' (0,0) False
+  gameLoop (generateBoard 19) 'b' (0,0) True
 
 type Board = [[Char]]
 type Move = (Int, Int)
@@ -71,7 +71,6 @@ gameLoop board player score singlePlayer = do
       if isJust maybeBoard2 then do
         -- possibly legal move (not out of bounds, not occupied)
         -- ... BUT need to check for suicide!
-
         let board2 = fromJust maybeBoard2
         let (board3, newScore) = capture board2 score move
 
@@ -257,18 +256,7 @@ capture board score move = do
 -- Generate new board with pieces in given list removed from board
 removePieces :: Board -> [Move] -> Board
 removePieces board [] = board
-removePieces board (h:t) = removePieces (removePiece board h) t
-
--- Generate new board with given piece removed
-removePiece :: Board -> Move -> Board
-removePiece board piece =
-  take (row-1) board ++
-    [take (col-1) boardRow ++ "\n" ++ drop col boardRow] ++
-    drop row board
-  where
-    row = fst piece
-    boardRow = board!!(row-1)
-    col = snd piece
+removePieces board (h:t) = removePieces (putStone board h ' ') t
 
 -- Update score by counting number of captured pieces and adding to the
 -- appropriate player
@@ -480,14 +468,24 @@ aiMove board player = do
   -- 1) Generate a list of all possible legal moves on the board
   allMoves <- getAllLegalMoves board player
 
-  -- 2) Randomly sample half of the legal moves
-  let numMoves = div (fromIntegral $ length allMoves) 2
-  randomSample <- sampleN allMoves numMoves
+  -- 2) Randomly sample 16 different legal moves
+  randomSample <- sampleN allMoves 16
 
   -- 3) Pick the move with the highest score
   let move = bestMove randomSample board player
 
   return move
+
+isLegalMove :: Board -> Move -> Char -> IO Bool
+isLegalMove board move player = do
+  let maybeBoard = doMove board move player
+  if isJust maybeBoard then do
+    let board2 = fromJust maybeBoard
+    --let (board3, newScore) = capture board2 (0,0) move
+    if not $ isSuicide board2 move then
+      return True
+    else return False
+  else return False
 
 getAllLegalMoves :: Board -> Char -> IO [Move]
 getAllLegalMoves board player = do
@@ -516,17 +514,6 @@ getAllLegalMoves board player = do
       where
         nextRow = row+1
         nextCol = col+1
-
-isLegalMove :: Board -> Move -> Char -> IO Bool
-isLegalMove board move player = do
-  let maybeBoard = doMove board move player
-  if isJust maybeBoard then do
-    let board2 = fromJust maybeBoard
-    let (board3, newScore) = capture board2 (0,0) move
-    if isOccupied board3 move then
-      return True
-    else return False
-  else return False
 
 -- -- Gets the move with the largest score
 bestMove :: [Move] -> Board -> Char -> Move
