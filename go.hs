@@ -215,31 +215,39 @@ capture board score move = do
         then []
         else if player == getPiece board left
           then []
-          else getGroup board left left []
+          else if not (isOccupied board left)
+            then []
+            else getGroup board left left []
     upGroup =
       if not (isInBounds size up)
         then []
         else if player == getPiece board up
           then []
-          else if (up `elem` leftGroup)
+          else if not (isOccupied board left)
             then []
-            else getGroup board up up []
+            else if (up `elem` leftGroup)
+              then []
+              else getGroup board up up []
     rightGroup =
       if not (isInBounds size right)
         then []
         else if player == getPiece board right
           then []
-          else if (right `elem` leftGroup) || (right `elem` upGroup)
+          else if not (isOccupied board left)
             then []
-            else getGroup board right right []
+            else if (right `elem` leftGroup) || (right `elem` upGroup)
+              then []
+              else getGroup board right right []
     downGroup =
       if not (isInBounds size down)
         then []
         else if player == getPiece board down
           then []
-          else if (down `elem` leftGroup) || (down `elem` upGroup) || (down `elem` rightGroup)
+          else if not (isOccupied board left)
             then []
-            else getGroup board down down []
+            else if (down `elem` leftGroup) || (down `elem` upGroup) || (down `elem` rightGroup)
+              then []
+              else getGroup board down down []
     leftPieces =
       if (isDead board leftGroup)
         then leftGroup
